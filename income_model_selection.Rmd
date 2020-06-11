@@ -1,0 +1,297 @@
+---
+title: "3302 proj"
+author: "Daniel Detrick"
+date: "4/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+library(sqldf)
+library(ggplot2)
+```
+
+```{r}
+# loading in data and data manipulation- changing varibles
+adult <- read.csv("/danieldetrick/adult.csv", header = T)
+
+adult$over_50 = case_when((adult$income == '>50K') ~ 1, TRUE ~ 0)
+
+adult$years_school = case_when(adult$education == 'Preschool' ~ 0,
+                      adult$education == '1st-4th' ~ 4,
+                      adult$education == '5th-6th' ~ 6,
+                      adult$education == '7th-8th' ~ 8,
+                      adult$education == '9th' ~ 9,
+                      adult$education == '10th' ~ 10,
+                      adult$education == '11th' ~ 11,
+                      adult$education == '12th' ~ 12,
+                      adult$education == 'HS-grad' ~ 12,
+                      adult$education == 'Some-college' ~ 13,
+                      adult$education == 'Assoc-acdm' ~ 14,
+                      adult$education == 'Assoc-voc' ~ 14,
+                      adult$education == 'Bachelors' ~ 16,
+                      adult$education == 'Masters' ~ 17,
+                      adult$education == 'Prof-school' ~ 19,
+                      adult$education == 'Doctorate' ~ 20
+)
+adult$isMarried = ifelse(adult$marital.status == "Married-civ-spouse" | adult$marital.status == "Married-AF-spouse",1,0)
+adult$isMarried = as.factor(adult$isMarried)
+
+adult$isUS = ifelse(adult$native.country == "United-States",1,0)
+adult$net_cap = adult$capital.gain - adult$capital.loss
+
+adult$continent = case_when(adult$native.country == 'United-States' ~ 'North America',
+                            adult$native.country == 'Greece' ~ 'Europe',
+                            adult$native.country == 'Taiwan' ~ 'Asia',
+                            adult$native.country == 'Trinadad&Tobago' ~ 'Carribean',
+                            adult$native.country == 'Holand-Netherlands' ~ 'Europe',
+                            adult$native.country == 'Iran' ~ 'Middle East',
+                            adult$native.country == 'Italy' ~ 'Europe',
+                            adult$native.country == 'Honduras' ~ 'Central America',
+                            adult$native.country == 'Cambodia' ~ 'Asia',
+                            adult$native.country == 'Dominican-Republic' ~ 'Central America',
+                            adult$native.country == 'Hungary' ~ 'Europe',
+                            adult$native.country == 'Jamaica' ~ 'Carribean',
+                            adult$native.country == 'Yugoslavia' ~ 'Europe',
+                            adult$native.country == 'Laos' ~ 'Asia',
+                            adult$native.country == 'Vietnam' ~ 'Asia',
+                            adult$native.country == 'India' ~ 'Asia',
+                            adult$native.country == 'Canada' ~ 'North America',
+                            adult$native.country == 'Puerto-Rico' ~ 'Central America',
+                            adult$native.country == 'England' ~ 'Europe',
+                            adult$native.country == 'Japan' ~ 'Asia',
+                            adult$native.country == 'Cuba' ~ 'Central America',
+                            adult$native.country == 'Peru' ~ 'South America',
+                            adult$native.country == 'Haiti' ~ 'Carribean',
+                            adult$native.country == 'Columbia' ~ 'South America',
+                            adult$native.country == 'Ecuador' ~ 'South America',
+                            adult$native.country == 'Scotland' ~ 'Europe',
+                            adult$native.country == 'Thailand' ~ 'Asia',
+                            adult$native.country == 'Mexico' ~ 'Central America',
+                            adult$native.country == 'China' ~ 'Asia',
+                            adult$native.country == 'Philippines' ~ 'Asia',
+                            adult$native.country == 'South' ~ 'Unknown',
+                            adult$native.country == 'Poland' ~ 'Europe',
+                            adult$native.country == 'Germany' ~ 'Europe',
+                            adult$native.country == 'Hong' ~ 'Asia',
+                            adult$native.country == 'Ireland' ~ 'Europe',
+                            adult$native.country == 'Nicaragua' ~ 'Central America',
+                            adult$native.country == 'El-Salvador' ~ 'Central America',
+                            adult$native.country == 'Guatemala' ~ 'Central America',
+                            adult$native.country == 'France' ~ 'Europe',
+                            adult$native.country == 'Portugal' ~ 'Europe',
+                            adult$native.country == 'Outlying-US(Guam-USVI-etc)' ~ 'Asia',
+                            adult$native.country == '?' ~ 'Unknown',
+                            TRUE ~ 'Yes')
+adult$age_sq = adult$age^2
+```
+
+### -----------------------------------------------------------------------------------------
+### BEGIN EDA
+```{r}
+# PLOT OF AGE - SEE QUADRATIC LIKE SHAPE 
+age_prob = sqldf('SELECT age, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY age')
+age_prob$logit = log(age_prob$prob/(1-age_prob$prob))
+age_prob$age_sq = (age_prob$age)^2
+
+ggplot(data = age_prob, aes(x = age, y = prob)) + geom_point(size=2) + xlab("Age") + ylab("Probability of making over 50k annually")
+
+ggplot(data = age_prob, aes(x = age, y = logit)) + geom_point(size=2) + xlab("Age") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF YEARS_SCHOOL VARILBLE, VERY LINEAR TREND
+edu_prob = sqldf('SELECT years_school, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY years_school')
+edu_prob$logit = log(edu_prob$prob/(1-edu_prob$prob))
+
+ggplot(data = edu_prob, aes(x = years_school, y = prob)) + geom_point(size=2) + xlab("Years of school") + ylab("Probability of making over 50k annually")
+
+ggplot(data = edu_prob, aes(x = years_school, y = logit)) + geom_point(size=2) + xlab("Years of school") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF HOURS PER WEEK- LINEAR TREND
+adult$hours_per_week = adult$hours.per.week
+hours_prob = sqldf('SELECT hours_per_week, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY hours_per_week')
+hours_prob$logit = log(hours_prob$prob/(1-hours_prob$prob))
+
+ggplot(data = hours_prob, aes(x = log(hours_per_week), y = prob)) + geom_point(size=2) + xlab("Hours per week") + ylab("Probability of making over 50k annually")
+
+ggplot(data = hours_prob, aes(x = log(hours_per_week), y = logit)) + geom_point(size=2) + xlab("Hours per week") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# SEX- WE SEE MALES ARE MUCH HIGHER THAN FEMALES
+sex_prob = sqldf('SELECT sex, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY sex')
+sex_prob$logit = log(sex_prob$prob/(1-sex_prob$prob))
+ggplot(data = sex_prob, aes(x = sex, y = prob)) + geom_point(size=2) + xlab("Sex") + ylab("Probability of making over 50k annually")
+
+ggplot(data = sex_prob, aes(x = sex, y = logit)) + geom_point(size=2) + xlab("Sex") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF RACE (BOX PLOT IS BAD)- WE SAW ASAIN AND WHITE WERE MUCH HIHER THAN OTHER BUT 
+# WE SAW THAT WHEN WE GROUP THEM OUR MODEL BECAME WORSE
+race_prob = sqldf('SELECT race, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY race')
+race_prob$logit = log(race_prob$prob/(1-race_prob$prob))
+
+ggplot(race_prob, aes(x = race, y = prob, color = race)) + geom_boxplot()
+
+#ggplot(data = race_prob, aes(x = race, y = prob)) + geom_point(size=2) + xlab("Race") + ylab("Probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF MARITIAL STATUS- THIS IS WHY WE CREATED IS_MARRIED VARIBLE AS THE IS MARRIED CIV AND 
+# ARMED FORCES WERE THE HIGHEST SO WE GROUPED 
+adult$marital_status = adult$marital.status
+marital_status_prob = sqldf('SELECT marital_status, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY marital_status')
+marital_status_prob$logit = log(marital_status_prob$prob/(1-marital_status_prob$prob))
+
+
+ggplot(data = marital_status_prob, aes(x = marital_status, y = prob)) + geom_point(size=2) + xlab("Marital Status") + ylab("Probability of making over 50k annually")
+
+ggplot(data = marital_status_prob, aes(x = marital_status, y = logit)) + geom_point(size=2) + xlab("Marital Status") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF YEARS SCHOOL WITH IT BROKEN UP BY SEX, BOTH SEEM TO HAVE SAME SLOPE
+# YET FEMALE IS ALWAYS BELOW MALE
+edu_sex_prob = sqldf('SELECT years_school, sex, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY years_school, sex')
+edu_sex_prob$logit = log(edu_sex_prob$prob/(1-edu_sex_prob$prob))
+
+ggplot(data = edu_sex_prob, aes(x = years_school, y = prob)) + geom_point(aes(color = sex), size=2) + xlab("Years of school") + ylab("Probability of making over 50k annually")
+
+ggplot(data = edu_sex_prob, aes(x = years_school, y = logit)) + geom_point(aes(color = sex), size=2) + xlab("Years of school") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF AGE WITH IT BROKEN UP BY SEX- WE SEE THE SLOPES DIFFER, WE ADDED THIS INTERACTION 
+age_prob = sqldf('SELECT age, sex, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY age, sex')
+age_prob$logit = log(age_prob$prob/(1-age_prob$prob))
+age_prob$age_sq = (age_prob$age)^2
+
+ggplot(data = age_prob, aes(x = age, y = prob)) + geom_point(aes(color = sex), size=2) + xlab("Age") + ylab("Probability of making over 50k annually")
+
+ggplot(data = age_prob, aes(x = age, y = logit)) + geom_point(aes(color = sex), size=2) + xlab("Age") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF AGE BROKEN UP BY IF MARRIED- WE SEE MARRIED PEOPLE ARE HIGHER, WE ADDED THIS INTERACTION 
+age_prob = sqldf('SELECT age, isMarried, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY age, isMarried')
+age_prob$logit = log(age_prob$prob/(1-age_prob$prob))
+age_prob$age_sq = (age_prob$age)^2
+
+ggplot(data = age_prob, aes(x = age, y = prob)) + geom_point(aes(color = isMarried), size=2) + xlab("Age") + ylab("Probability of making over 50k annually")
+
+ggplot(data = age_prob, aes(x = age, y = logit)) + geom_point(aes(color = isMarried), size=2) + xlab("Age") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# PLOT OF AGE BROKEN DOWN BY SCHOOOL YEARS, WE SEE HIGHER YEARS SCHOOL HAS HIGHER PROPORTION
+# THEREFORE WE ADDED THIS INTERACTINO
+age_prob = sqldf('SELECT age, years_school, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY age, years_school')
+age_prob$logit = log(age_prob$prob/(1-age_prob$prob))
+
+ggplot(data = age_prob, aes(x = age, y = prob)) + geom_point(aes(color = years_school), size=2) + xlab("Age") + ylab("Probability of making over 50k annually")
+
+ggplot(data = age_prob, aes(x = age, y = logit)) + geom_point(aes(color = years_school), size=2) + xlab("Age") + ylab("Logit of probability of making over 50k annually")
+```
+
+```{r}
+# BLOT OF RACE AND SEX, WE SEE THAT FEMALES ARE ALWAYS LOWER THAN MALES
+age_prob = sqldf('SELECT race, sex, SUM(over_50)/COUNT(*) as prob FROM adult GROUP BY race, sex')
+age_prob$logit = log(age_prob$prob/(1-age_prob$prob))
+
+ggplot(data = age_prob, aes(x = race, y = prob)) + geom_point(aes(color = sex), size=2) + xlab("Race") + ylab("Probability of making over 50k annually")
+
+ggplot(data = age_prob, aes(x = race, y = logit)) + geom_point(aes(color = sex), size=2) + xlab("Race") + ylab("Logit of probability of making over 50k annually")
+```
+
+### -----------------------------------------------------------------------------------------
+## THIS IS WHERE WE START MODEL BUILDING
+```{r}
+# This is our inital model, we slowly will build off this - all terms are significant by anova
+# AIC: 24213
+base_model = glm(over_50 ~ age + years_school + isMarried + race + sex + hours.per.week, data = adult, family= binomial)
+summary(base_model)
+anova(base_model, test = "Chi")
+```
+
+```{r}
+# This model adds the term "isUs"- this term was significant 
+# AIC: 24192
+base_model_add_isUS = glm(over_50 ~ age + years_school + isMarried + race + sex + hours.per.week + isUS, data = adult, family= binomial)
+summary(base_model_add_isUS)
+anova(base_model_add_isUS, test = "Chi")
+```
+
+```{r}
+# This model adds the terms net_cap and contintent from base- both are significant yet we see a
+# huge prode in AIC, net_cap provided a huge drop in deviance 
+# AIC: 22639
+model3 = glm(over_50 ~ age + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent, data = adult, family= binomial)
+summary(model3)
+anova(model3, test = "Chi")
+```
+
+```{r}
+# this is the same model as above yet we transform age to age squared
+# AIC: 22011
+model4 = glm(over_50 ~ age + age_sq + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent, data = adult, family= binomial)
+summary(model4)
+anova(model4, test = "Chi")
+```
+
+```{r}
+# this model has no age squared, and it eplores and interaciton between and and sex
+# AIC: 22638
+model5 = glm(over_50 ~ age + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent + age:sex, data = adult, family= binomial)
+summary(model5)
+anova(model5, test = "Chi")
+```
+
+```{r}
+# THIS MODEL HAS THE BASE, AGE SQUARED, AND AGE SEX INTERACTION (WITH AGED SQUARED INT) 
+# AIC: 22014
+model6 = glm(over_50 ~ age + age_sq + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent + age:sex + age_sq:sex, data = adult, family= binomial)
+summary(model6)
+anova(model6, test = "Chi")
+```
+
+```{r}
+# THIS MODEL HAS THE BASE, AGE SQUARED, AND YEARS SCHOOL AGE INTERACTION (NO SQAURED INTERACITON)
+# AIC: 22004
+model7 = glm(over_50 ~ age + age_sq + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent + age:years_school, data = adult, family= binomial)
+summary(model7)
+anova(model7, test = "Chi")
+```
+
+```{r}
+# THIS MODEL HAS THE BASE, AGE SQUARED, AND YEARS SCHOOL AGE INTERACTION (NO SQAURED INTERACITON), AND AGE ISMARRIED INTERACTION 
+# AIC: 21966
+final_model = glm(over_50 ~ age + age_sq + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent + age:years_school + age:isMarried, data = adult, family= binomial)
+summary(final_model)
+anova(final_model, test = "Chi")
+```
+
+```{r}
+# THIS SHOWS OUR FINAL MODEL HAS A 83% (5474 OUT OF 6512) HIT RATE (ASSUMING PROB >50% IS A 1)
+data_rows_saved = adult[sample(nrow(adult), nrow(adult)*.2), ]
+adultnew = setdiff(adult, data_rows_saved)
+final_model = glm(over_50 ~ age + age_sq + years_school + isMarried + race + sex + hours.per.week + net_cap  + continent + age:years_school + age:isMarried, data = adult, family= binomial)
+actual = data_rows_saved$over_50
+logits = predict(final_model, data_rows_saved)
+probs = exp(logits)/(1+exp(logits))
+guess = case_when(probs > .5 ~ 1, TRUE ~ 0)
+
+predic_vals = data.frame(actual, guess, probs)
+
+sum(predic_vals$actual == predic_vals$guess)
+#predic_vals = cbind(predic_vals,data_rows_saved)
+predic_vals
+```
